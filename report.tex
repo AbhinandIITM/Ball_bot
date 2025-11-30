@@ -1,0 +1,601 @@
+\documentclass[11pt,twocolumn]{article} % Changed to article class for paper-like format
+
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{hyperref}
+\usepackage{geometry}
+\geometry{a4paper, margin=1in}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{datetime}
+\usepackage{listings}
+\usepackage{float} % For better image placement
+
+\newdateformat{monthyear}{\monthname[\THEMONTH] \THEYEAR}
+
+% Helper macros for derivatives
+\newcommand{\ddt}[1]{\frac{d}{dt}#1}
+\newcommand{\dddt}[1]{\frac{d^2}{dt^2}#1}
+
+\begin{document}
+
+\begin{titlepage}
+    \centering
+    \includegraphics[width=0.15\textwidth]{iitm.png}\par\vspace{1cm}
+    
+    {\scshape\LARGE Indian Institute of Technology Madras \par}
+    \vspace{1.5cm}
+    
+    {\LARGE \bfseries Control of Ball Balancing Robot \par}
+    \vspace{1cm}
+    
+    {\Large\bfseries Course: ME4010 \par}
+    \vspace{0.5cm}
+    
+    {\Large Professor: Dr. Manish Anand \par}
+    \vspace{2cm}
+    
+    {\large \textbf{Authors:} \par}
+    \vspace{0.5cm}
+    {\large 
+    T. Abhinand (ME23B208)\\
+    }
+    
+    \vfill
+    {\large \monthyear\today\par}
+\end{titlepage}
+
+%\maketitle % Removed as it's often not used with a custom titlepage in article class
+%\tableofcontents % Removed as per user's request for simpler format. If needed, can be re-added as \section*{Contents}
+\newpage
+
+\section{Introduction}
+This report details the control strategies applied to a ball balancing robot, focusing on the derivation of its equations of motion and the implementation of LQR and Root Locus control techniques. The objective is to maintain the stability of a ball on a moving platform.
+
+\section{System Modeling}
+
+\subsection{System Description}
+The system consists of a ball balancing robot modeled with three degrees of freedom. The mechanical structure is defined by the interaction between the wheel, the robot body, and a balancing mass.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\columnwidth]{system.png} % Adjusted for two-column layout
+    \caption{Diagram of the Ball Balancing Robot System}
+    \label{fig:system_diagram}
+\end{figure}
+
+The system parameters and generalized coordinates are defined as follows:
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{|c|l|}
+\hline
+\textbf{Symbol} & \textbf{Description} \\ \hline
+\(x_w(t)\) & Linear displacement of the wheel/cart \\ \hline
+\(\theta(t)\) & Tilt angle of the robot body \\ \hline
+\(x(t)\) & Position of the balancing mass relative to the body \\ \hline
+\(M_w, I_w\) & Mass and Inertia of the wheel \\ \hline
+\(M_r, I_r\) & Mass and Inertia of the robot body \\ \hline
+\(m_b, I_b\) & Mass and Inertia of the balancing mass \\ \hline
+\(R\) & Radius of the wheel \\ \hline
+\(r\) & Radius of the ball \\ \hline
+\(d\) & Distance to the robot body center of mass \\ \hline
+\(h\) & Height parameter for the balancing mass \\ \hline
+\(g\) & Gravitational acceleration \\ \hline
+\end{tabular}
+\caption{System Parameters}
+\label{tab:params}
+\end{table}
+
+\subsection{Equations of Motion Derivation}
+The equations of motion are derived using the Euler-Lagrange method. The Lagrangian \(\mathcal{L}\) is defined as the difference between the total kinetic energy (\(T\)) and the total potential energy (\(U\)) of the system.
+
+\subsubsection{Kinetic Energy (\(T\))}
+The total kinetic energy is the sum of the kinetic energies of the wheel (\(T_w\)), the robot body (\(T_r\)), and the balancing mass (\(T_b\)).
+
+\begin{equation}
+    T_w = \frac{1}{2} M_w \dot{x}_w^2 + \frac{1}{2} I_w \left(\frac{\dot{x}_w}{R}\right)^2
+\end{equation}
+
+\begin{equation}
+    T_r = \frac{1}{2} M_r \dot{x}_w^2 + \frac{1}{2} I_r \dot{\theta}^2
+\end{equation}
+
+The kinetic energy of the balancing mass \(T_b\) includes both translational and rotational components, accounting for the relative motion \(x(t)\) and the body angle \(\theta(t)\):
+\begin{equation}
+    T_b = \frac{1}{2} m_b (v_{b,x}^2 + v_{b,y}^2) + \frac{1}{2} I_b \left(\frac{\dot{x}}{r}\right)^2
+\end{equation}
+
+\subsubsection{Position and Velocity Analysis}
+
+The position of the balancing mass in the inertial frame is derived by first expressing its position in the body-fixed frame, then applying a rotation and translation.
+
+\paragraph{Body-Fixed Coordinates}
+In the body-fixed frame, the position of the balancing mass relative to the body center is:
+\begin{equation}
+    \begin{bmatrix} x_{rel} \\ y_{rel} \end{bmatrix} = \begin{bmatrix} x \\ h + r \end{bmatrix}
+\end{equation}
+
+\paragraph{Rotation Matrix}
+The rotation from the body-fixed frame to the inertial frame is represented by the rotation matrix:
+\begin{equation}
+    \mathbf{R}(\theta) = \begin{bmatrix} \cos(\theta) & \sin(\theta) \\ -\sin(\theta) & \cos(\theta) \end{bmatrix}
+\end{equation}
+
+where \(\theta\) is the tilt angle of the robot body.
+
+\paragraph{Inertial Position Derivation}
+The position of the balancing mass in the inertial frame is obtained by rotating the body-fixed coordinates and adding the wheel position offset:
+
+Performing the matrix multiplication:
+\begin{equation}
+    \begin{bmatrix} x_b \\ y_b \end{bmatrix} = \begin{bmatrix} \cos(\theta) & \sin(\theta) \\ -\sin(\theta) & \cos(\theta) \end{bmatrix} \begin{bmatrix} x \\ h + r \end{bmatrix} + \begin{bmatrix} x_w \\ 0 \end{bmatrix}
+\end{equation}
+
+Expanding the matrix product:
+\begin{align}
+    x_b &= \cos(\theta) \cdot x + \sin(\theta) \cdot (h + r) + x_w \\
+    y_b &= -\sin(\theta) \cdot x + \cos(\theta) \cdot (h + r)
+\end{align}
+
+Rearranging:
+\begin{align}
+    x_b &= x\cos(\theta) + (h + r)\sin(\theta) + x_w \label{eq:x_b} \\
+    y_b &= (h + r)\cos(\theta) - x\sin(\theta) \label{eq:y_b}
+\end{align}
+
+\subsubsection{Potential Energy (\(U\))}
+The total potential energy is the sum of the potential energies of the components:
+\begin{equation}
+    U = U_b + U_r + U_w
+\end{equation}
+where:
+\begin{align}
+    U_b &= m_b g ((h + r)\cos(\theta) - x\sin(\theta)) + R + \text{const} \\
+    U_r &= M_r g d \cos(\theta) + R \\
+    U_w &= R \quad (\text{constant})
+\end{align}
+
+\subsubsection{Lagrangian}
+The Lagrangian of the system is given by:
+\begin{equation}
+    \mathcal{L} = T - U
+\end{equation}
+
+\subsubsection{Equations of Motion}
+Applying the Euler-Lagrange equation:
+\begin{equation}
+    \frac{d}{dt}\left(\frac{\partial \mathcal{L}}{\partial \dot{q}_i}\right) - \frac{\partial \mathcal{L}}{\partial q_i} = 0
+\end{equation}
+for the generalized coordinates \(q = [x_w, \theta, x]\), we obtain the three equations of motion:
+% Placeholder for equations from equations_of_motion.ipynb
+% These are the equations that would be extracted directly from the notebook's LaTeX output.
+\begin{itemize}
+    \item \textbf{Equation for \(x_w\):} (LaTeX output for EOM for x_w here)
+    \item \textbf{Equation for \(\theta\):} (LaTeX output for EOM for theta here)
+    \item \textbf{Equation for \(x\):} (LaTeX output for EOM for x here)
+\end{itemize}
+
+
+\subsection{State-Space Formulation}
+
+\subsubsection{Mass Matrix}
+The system dynamics can be expressed in the form:
+\begin{equation}
+    \mathbf{M}(\mathbf{q}) \ddot{\mathbf{q}} + \mathbf{K}(\mathbf{q}, \dot{\mathbf{q}}) = 0
+\end{equation}
+
+The mass/inertia matrix \(\mathbf{M}_1\) is:
+\begin{equation}
+    \mathbf{M}_1 = \begin{bmatrix}
+        \frac{I_b}{r^2} + m_b & m_b(h + r) \\
+        m_b(h + r) & I_r + m_b(h + r)^2
+    \end{bmatrix}
+\end{equation}
+
+\subsubsection{Stiffness Matrix}
+The stiffness/restoring force matrix \(\mathbf{M}_2\) captures the gravitational restoring terms:
+\begin{equation}
+    \mathbf{M}_2 = \begin{bmatrix}
+        0 & g m_b \\
+        g m_b & g(M_r d + m_b(h + r))
+    \end{bmatrix}
+\end{equation}
+
+\subsubsection{Input Coupling Matrix}
+The torque/input coupling matrix \(\mathbf{M}_3\) represents the effect of the motor torque on the generalized coordinates:
+\begin{equation}
+    \mathbf{M}_3 = \begin{bmatrix}
+        -m_b(h + r) \\
+        -I_r - m_b(h + r)^2
+    \end{bmatrix}
+\end{equation}
+
+\subsubsection{Linearized State-Space Matrices}
+The system can be linearized around the equilibrium point \(\theta = 0\) to obtain the linear state-space representation. Define the state vector as:
+\begin{equation}
+    \mathbf{x} = \begin{bmatrix} x \\ \theta \\ \dot{x} \\ \dot{\theta} \end{bmatrix}
+\end{equation}
+
+The linearized state-space dynamics are:
+\begin{equation}
+    \dot{\mathbf{x}} = \mathbf{A} \mathbf{x} + \mathbf{B} u
+\end{equation}
+
+where the state transition matrix \(\mathbf{A}\) is:
+\begin{equation}
+    \mathbf{A} = \begin{bmatrix}
+        0 & 1 & 0 & 0 \\
+        - \frac{g m_b}{I_b / r^{2} + m_b} & 0 & 0 & 0 \\
+        0 & 0 & 0 & 1 \\
+        \frac{g m_b (I_b / r^{2} + m_b) - g (M_r d + m_b (h + r)) (I_b / r^{2} + m_b)}{(I_b / r^{2} + m_b) (I_r + m_b (h + r)^{2}) - m_b^{2} (h + r)^{2}} & 0 & 0 & 0
+    \end{bmatrix}
+\end{equation}
+And the input matrix \(\mathbf{B}\) is:
+\begin{equation}
+    \mathbf{B} = \begin{bmatrix} 0 \\ \frac{- m_b (h + r)}{I_b / r^{2} + m_b} \\ 0 \\ \frac{- (I_b / r^{2} + m_b) (I_r + m_b (h + r)^{2}) + m_b^{2} (h + r)^{2}}{(I_b / r^{2} + m_b) (I_r + m_b (h + r)^{2}) - m_b^{2} (h + r)^{2}} \end{bmatrix}
+\end{equation}
+
+The output equation is:
+\begin{equation}
+    y = \mathbf{C} \mathbf{x} + \mathbf{D} u
+\end{equation}
+where \(\mathbf{C} = \begin{bmatrix} 0 & 0 & 1 & 0 \end{bmatrix}\) and \(\mathbf{D} = 0\).
+
+\section{Control and State Estimation}
+
+\subsection*{Numerical Parameters} % Changed from \section* to \subsection*
+\begin{table}[h!]
+\centering
+\begin{tabular}{|c|c|l|}
+\hline
+\textbf{Symbol} & \textbf{Value} & \textbf{Units} \\ \hline
+$\mathbf{M_w}$ & 4.3 & Mass of wheel ($\mathbf{kg}$) \\ \hline
+$\mathbf{M_r}$ & 10.12 & Mass of robot body ($\mathbf{kg}$) \\ \hline
+$\mathbf{m_b}$ & 0.00271 & Mass of the ball ($\mathbf{kg}$) \\ \hline
+$\mathbf{I_w}$ & 0.2725 & Inertia of one wheel ($\mathbf{kg \cdot m^2}$) \\ \hline
+$\mathbf{I_r}$ & 0.4747 & Inertia of robot body ($\mathbf{kg \cdot m^2}$) \\ \hline
+$\mathbf{I_b}$ & $1.740 \times 10^{-6}$ & Inertia of the ball ($\mathbf{kg \cdot m^2}$) \\ \hline
+$\mathbf{R}$ & 0.356 & Radius of the wheel ($\mathbf{m}$) \\ \hline
+$\mathbf{r}$ & 0.04006 & Radius of the ball ($\mathbf{m}$) \\ \hline
+$\mathbf{d}$ & 0.18865 & Distance to robot body CoM ($\mathbf{m}$) \\ \hline
+$\mathbf{h}$ & 0.31665 & Robot height ($\mathbf{m}$) \\ \hline
+$\mathbf{g}$ & 9.81 & Gravitational acceleration ($\mathbf{m/s^2}$) \\ \hline
+\end{tabular}
+\caption{ Numerical Parameters for the Ball Balancing Robot System}
+\label{tab:final_params}
+</table
+\end{table}
+
+\section{Numerical State-Space Model}
+
+Using the parameters in Table~\ref{tab:final_params}, the linearized state-space model
+\(\dot{\mathbf{x}} = \mathbf{A}\mathbf{x} + \mathbf{B}u,\ y = \mathbf{C}\mathbf{x} + \mathbf{D}u\)
+is evaluated numerically as:
+
+\begin{equation}
+    \mathbf{A} =
+    \begin{bmatrix}
+        0 & 1 & 0 & 0 \\
+        0 & 0 & -2.4497 & 0 \\
+        0 & 0 & 0 & 1 \\
+        0 & 0 & 58.1065 & 0
+    \end{bmatrix}
+\end{equation}
+
+\begin{equation}
+    \mathbf{B} =
+    \begin{bmatrix}
+        0 \\ 0.0076 \\ 0 \\ -0.0041
+    \end{bmatrix}
+\end{equation}
+
+\begin{equation}
+    \mathbf{C} = \begin{bmatrix} 0 & 0 & 1 & 0 \end{bmatrix},
+    \qquad
+    \mathbf{D} = \begin{bmatrix} 0 \end{bmatrix}
+\end{equation}
+
+\section{LQR Controller Design}
+
+\subsection{Optimal Control Problem}
+The Linear Quadratic Regulator (LQR) is designed to stabilize the unstable ball balancing robot while minimizing a cost function:
+\begin{equation}
+    J = \int_0^{\infty} \left( \mathbf{x}^T \mathbf{Q} \mathbf{x} + \mathbf{u}^T \mathbf{R} \mathbf{u} \right) dt
+\end{equation}
+
+\subsection{Bryson's Rule for Weight Selection}
+\begin{equation}
+    \mathbf{Q} = \text{diag}\left[\frac{1}{x_{\max}^2}, \frac{1}{\dot{x}_{\max}^2}, \frac{1}{\theta_{\max}^2}, \frac{1}{\dot{\theta}_{\max}^2}\right],
+    \qquad
+    \mathbf{R} = \frac{1}{u_{\max}^2}
+\end{equation}
+
+\begin{align*}
+    x_{\max} &= d/8 = 0.0236 \text{ m} \\
+    \dot{x}_{\max} &= 0.5 \text{ m/s} \\
+    \theta_{\max} &= 15^\circ = 0.2618 \text{ rad} \\
+    \dot{\theta}_{\max} &= 2 \text{ rad/s} \\
+    u_{\max} &= 5 \text{ (actuator units)}
+\end{align*}
+
+\subsection{Optimal Feedback Control Law}
+\begin{equation}
+    \mathbf{A}^T \mathbf{S} + \mathbf{S} \mathbf{A} - \mathbf{S} \mathbf{B} \mathbf{R}^{-1} \mathbf{B}^T \mathbf{S} + \mathbf{Q} = 0
+\end{equation}
+\begin{equation}
+    \mathbf{K} = \mathbf{R}^{-1} \mathbf{B}^T \mathbf{S}, \qquad u = -\mathbf{K}\mathbf{x}
+\end{equation}
+
+\subsection{Closed-Loop System}
+\begin{equation}
+    \dot{\mathbf{x}} = (\mathbf{A} - \mathbf{B}\mathbf{K}) \mathbf{x} = \mathbf{A}_{cl} \mathbf{x}
+\end{equation}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\columnwidth]{controller_block.png} % Adjusted for two-column layout
+    \caption{LQR Controller Block Diagram}
+    \label{fig:controller}
+\end{figure}
+
+\section{State Estimation}
+
+\subsection{Observability Analysis}
+\begin{equation}
+    \mathbf{O} = \begin{bmatrix} \mathbf{C} \\ \mathbf{C}\mathbf{A} \\ \mathbf{C}\mathbf{A}^2 \\ \mathbf{C}\mathbf{A}^3 \end{bmatrix}
+\end{equation}
+
+\section{Full-Order Kalman Observer}
+
+\subsection{Observer Dynamics}
+\begin{equation}
+    \dot{\hat{\mathbf{x}}} = \mathbf{A}\hat{\mathbf{x}} + \mathbf{B}u + \mathbf{L}(y - \mathbf{C}\hat{\mathbf{x}})
+\end{equation}
+
+\subsection{Kalman Filter Gain Design}
+\begin{equation}
+    \mathbf{Q}_{obs} = 0.1 \cdot \text{diag}[10^7, 100, 10^6, 10], \qquad
+    \mathbf{R}_{obs} = 0.00001
+\end{equation}
+\begin{equation}
+    \mathbf{L} = \mathbf{P}\mathbf{C}^T \mathbf{R}_{obs}^{-1}
+\end{equation}
+
+\subsection{Estimation Error Dynamics}
+\begin{equation}
+    \dot{\mathbf{e}} = (\mathbf{A} - \mathbf{L}\mathbf{C})\mathbf{e}
+\end{equation}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\columnwidth]{full_observer_block.png} % Adjusted for two-column layout
+    \caption{Full-Order Kalman Observer}
+    \label{fig:full_observer}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\columnwidth]{full_obs_normal.png}
+    \caption{Full-order observer response: Ideal case}
+    \label{fig:full_obs_normal}
+\end{figure}
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\columnwidth]{full_obs_noise.png}
+    \caption{Full-order observer response: With measurement noise}
+    \label{fig:full_obs_noise}
+\end{figure}
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\columnwidth]{full_obs_noise_filtered.png}
+    \caption{Full-order observer response: Noise filtered}
+    \label{fig:full_obs_noise_filtered}
+\end{figure}
+
+\section{Minimum-Order (Reduced-Order) Observer}
+
+\subsection{Motivation}
+Since \(\theta\) is directly measured, a minimum-order observer estimates only unmeasured states \(\dot{x}, x, \dot{\theta}\).
+
+\subsection{State Partitioning}
+\begin{equation}
+    \mathbf{x}_a = \begin{bmatrix} \theta \end{bmatrix},
+    \qquad
+    \mathbf{x}_b = \begin{bmatrix} x \\ \dot{x} \\ \dot{\theta} \end{bmatrix}
+\end{equation}
+
+\begin{equation}
+    \begin{bmatrix} \dot{\mathbf{x}}_a \\ \dot{\mathbf{x}}_b \end{bmatrix} =
+    \begin{bmatrix} \mathbf{A}_{aa} & \mathbf{A}_{ab} \\ \mathbf{A}_{ba} & \mathbf{A}_{bb} \end{bmatrix}
+    \begin{bmatrix} \mathbf{x}_a \\ \mathbf{x}_b \end{bmatrix} +
+    \begin{bmatrix} \mathbf{B}_a \\ \mathbf{B}_b \end{bmatrix} u
+\end{equation}
+
+\subsection{Reduced-Order Observer}
+\begin{equation}
+    \dot{\mathbf{z}} = \mathbf{A}_{bb} \mathbf{z} + \mathbf{A}_{ba} \mathbf{x}_a + \mathbf{B}_b u +
+    \mathbf{K}_{min}(\mathbf{x}_a - \mathbf{A}_{aa} \mathbf{x}_a - \mathbf{A}_{ab} \mathbf{z} - \mathbf{B}_a u)
+\end{equation}
+\begin{equation}
+    \hat{\mathbf{x}}_b = \mathbf{z} + \mathbf{K}_{min} \mathbf{x}_a
+\end{equation}
+
+\subsection{Noise Covariances}
+\begin{equation}
+    \mathbf{Q}_{min} = 10000 \cdot \text{diag}[1, 100, 1], \qquad
+    \mathbf{R}_{min} = 0.005
+\end{equation}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\columnwidth]{reduced_observer_block.png} % Adjusted for two-column layout
+    \caption{Minimum-Order Observer}
+    \label{fig:reduced_observer}
+</figure>
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\columnwidth]{min_obs_normal.png}
+    \caption{Minimum-order observer response: Ideal case}
+    \label{fig:min_obs_normal}
+\end{figure}
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\columnwidth]{min_obs_noise.png}
+    \caption{Minimum-order observer response: With measurement noise}
+    \label{fig:min_obs_noise}
+</figure>
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\columnwidth]{min_obs_noise_filtered.png}
+    \caption{Minimum-order observer response: Noise filtered}
+    \label{fig:min_obs_noise_filtered}
+</figure>
+
+\section{Minimum-Order Observer with Noise Filtering}
+
+\subsection{Motivation for Filtering}
+Measurement noise on \(\theta\) can degrade observer performance. A low-pass filter is applied to the measured angle before feeding it to the minimum-order observer.
+
+\subsection{First-Order Low-Pass Filter (14 Hz)}
+A first-order low-pass filter is implemented with cutoff frequency \(f_c = 14\) Hz:
+\begin{equation}
+    \tau = \frac{1}{2\pi f_c} = \frac{1}{2\pi \cdot 14} \approx 0.01137\ \text{s}
+\end{equation}
+
+The filter transfer function is:
+\begin{equation}
+    H(s) = \frac{1}{\tau s + 1} = \frac{1}{0.01137 s + 1}
+\end{equation}
+
+The filtered measurement \(y_{filt}\) is obtained from:
+\begin{equation}
+    \dot{y}_{filt} = -\frac{1}{\tau}(y_{filt} - y_{meas})
+\end{equation}
+or in discrete form:
+\begin{equation}
+    y_{filt}(k+1) = y_{filt}(k) + \frac{\Delta t}{\tau}\bigl(y_{meas}(k) - y_{filt}(k)\bigr)
+\end{equation}
+
+\subsection{Filter Characteristics}
+The cutoff frequency of 14 Hz is chosen such that:
+\begin{itemize}
+    \item \textbf{High-frequency noise attenuation}: Measurement noise above 14 Hz is significantly attenuated
+    \item \textbf{System dynamics preservation}: The robot's physical angle dynamics (3–6 Hz range) are fully preserved
+    \item \textbf{Minimal phase lag}: At system frequencies, the filter introduces only a few milliseconds of phase lag
+\end{itemize}
+
+\subsection{Butterworth Filter Alternative (14 Hz)}
+For a second-order Butterworth filter:
+\begin{equation}
+    H(s) = \frac{\omega_n^2}{s^2 + \sqrt{2}\,\omega_n s + \omega_n^2}
+\end{equation}
+with
+\begin{equation}
+    \omega_n = 2\pi f_c = 2\pi \cdot 14 \approx 87.96\ \text{rad/s}
+\end{equation}
+
+The discrete-time realization uses the bilinear transformation with filter coefficients:
+\begin{equation}
+    y_{filt}(k) = -a_1 y_{filt}(k-1) - a_2 y_{filt}(k-2) + b_0 y_{meas}(k) + b_1 y_{meas}(k-1) + b_2 y_{meas}(k-2)
+\end{equation}
+
+\subsection{Integrated Observation Architecture}
+\begin{equation}
+    \dot{\mathbf{z}} = \mathbf{A}_{bb} \mathbf{z} + \mathbf{A}_{ba} y_{filt} + \mathbf{B}_b u +
+    \mathbf{K}_{min}(y_{filt} - \mathbf{A}_{aa} y_{filt} - \mathbf{A}_{ab} \mathbf{z} - \mathbf{B}_a u)
+\end{equation}
+
+\subsection{Robustness to Noise}
+The filtering strategy significantly improves robustness to measurement noise:
+\begin{itemize}
+    \item Reduces estimation error variance
+    \item Prevents observer from tracking high-frequency sensor noise
+    \item Improves closed-loop stability margins
+    \item Reduces actuator chatter and energy consumption
+\end{itemize}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\columnwidth]{filtered_observer_block.png} % Adjusted for two-column layout
+    \caption{Minimum-Order Observer with Low-Pass Filtering - Integrates measurement filtering with reduced-order estimation}
+    \label{fig:filtered_observer}
+</figure>
+
+\section{Integrated Control-Observer System}
+
+\subsection{Separation Principle}
+\begin{equation}
+    u = -\mathbf{K}\hat{\mathbf{x}}
+\end{equation}
+
+\subsection{Combined Closed-Loop Dynamics}
+\begin{equation}
+    \begin{bmatrix} \dot{\mathbf{x}} \\ \dot{\mathbf{e}} \end{bmatrix} =
+    \begin{bmatrix} \mathbf{A} - \mathbf{B}\mathbf{K} & \mathbf{B}\mathbf{K} \\
+                    0 & \mathbf{A} - \mathbf{L}\mathbf{C} \end{bmatrix}
+    \begin{bmatrix} \mathbf{x} \\ \mathbf{e} \end{bmatrix}
+\end{equation}
+
+\subsection{Pole Placement Strategy}
+For the ballbot system:
+\begin{itemize}
+    \item \textbf{Controller poles}: Placed by LQR at locations balancing stability and control effort
+    \item \textbf{Observer poles}: Placed faster than controller poles (typically 2–3× faster) to ensure fast convergence of estimation errors before they significantly affect control
+    \item \textbf{Time-scale separation}: Ensures that observer errors decay quickly relative to closed-loop response
+\end{itemize}
+
+\section{Summary of Observer Architectures}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Observer Type} & \textbf{Order} & \textbf{States} & \textbf{Advantages} \\ \hline
+Full-Order Kalman & 4 & All & Complete state information, standard \\ \hline
+Reduced-Order & 3 & \(\dot{x}, x, \dot{\theta}\) & Computational efficiency, no redundancy \\ \hline
+Reduced with Filter & 3 & Filtered + unmeasured & Noise rejection, smooth estimates \\ \hline
+\end{tabular}
+\caption{Comparison of Observer Architectures}
+\label{tab:observers}
+\end{table}
+
+\chapter{Root Locus Control}
+Root Locus analysis is a graphical method used to examine how the closed-loop poles of a system vary with a change in a system parameter, typically a gain. This method helps in understanding the stability and performance of the system.
+
+\section{Root Locus Controller Design (from Rlocus\_ctrl.m)}
+The `Rlocus_ctrl.m` MATLAB script is used to design a controller based on Root Locus analysis. This script typically involves:
+\begin{enumerate}
+    \item Defining the open-loop transfer function of the system.
+    \item Plotting the Root Locus using the `rlocus` function.
+    \item Selecting an appropriate gain $K$ to place the closed-loop poles in desired locations, ensuring stability and desired transient response.
+    \item Designing a compensator (e.g., lead, lag, PID) if simple proportional control is insufficient.
+</enumerate}
+
+\section{Simulink Model (Rlocus.slx)}
+The Root Locus designed controller is simulated using the `Rlocus.slx` Simulink model. This model typically contains:
+\begin{itemize}
+    \item The transfer function representation of the plant.
+    \item The controller block (e.g., a simple gain or a designed compensator).
+    \item Feedback loop.
+    \item Scopes to analyze the system's performance.
+\end{itemize}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\columnwidth]{placeholder_rlocus_plot.png} % Adjusted for two-column layout
+    \caption{Placeholder for Root Locus Plot}
+    \label{fig:rlocus_plot}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\columnwidth]{placeholder_rlocus_simulink.png} % Adjusted for two-column layout
+    \caption{Placeholder for Root Locus Simulink Model Block Diagram}
+    \label{fig:rlocus_simulink}
+\end{figure}
+
+\end{document}
