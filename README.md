@@ -1,6 +1,9 @@
 # Ball Balancing Robot Control Project
-
 This project explores control strategies for a ball balancing robot, focusing on two primary methods: Linear Quadratic Regulator (LQR) and Root Locus (PID).
+
+## System Modeling and Equations of Motion
+This section includes files related to the derivation of the system's equations of motion and their state-space formulation.
+- `equations_of_motion.ipynb`: Jupyter notebook detailing the derivation of the system's equations of motion.
 
 ## Linear Quadratic Regulator (LQR)
 
