@@ -168,8 +168,8 @@ xlabel('Time (s)'); ylabel('Ball Position x (m)'); %[output:140bd684]
 % Check performance
 stepinfo(T_total) %[output:7ac28221]
 %%
-[y,t] = impulse(T_total);
-impulseinfo(t,y) %[output:0d639f96]
+y,t
+impulseinfo(T_total) %[output:42ce9f11]
 
 %[appendix]{"version":"1.0"}
 %---
@@ -242,6 +242,6 @@ impulseinfo(t,y) %[output:0d639f96]
 %[output:7ac28221]
 %   data: {"dataType":"textualVariable","outputData":{"header":"struct with fields:","name":"ans","value":"         RiseTime: 3.0714\n    TransientTime: 825.7282\n     SettlingTime: 1.0448e+03\n      SettlingMin: 0.0888\n      SettlingMax: 0.5193\n        Overshoot: 195.1863\n       Undershoot: 0\n             Peak: 0.5193\n         PeakTime: 15.8121\n"}}
 %---
-%[output:0d639f96]
-%   data: {"dataType":"textualVariable","outputData":{"header":"struct with fields:","name":"ans","value":"            Peak: 0.0624\n    SettlingTime: 84.4468\n       Overshoot: 251.7192\n"}}
+%[output:42ce9f11]
+%   data: {"dataType":"error","outputData":{"errorType":"runtime","text":"Not enough input arguments.\n\nError in <a href=\"matlab:matlab.lang.internal.introspective.errorDocCallback('Rlocus_ctrl>impulseinfo', 'F:\\IITM\\sem 5\\ME4010\\Ball_bot\\Rlocus_ctrl.m', 57)\" style=\"font-weight:bold\">Rlocus_ctrl>impulseinfo<\/a> (<a href=\"matlab: opentoline('F:\\IITM\\sem 5\\ME4010\\Ball_bot\\Rlocus_ctrl.m',57,0)\">line 57<\/a>)\n    y = y(:);\n    ^^^^^^^^^"}}
 %---
