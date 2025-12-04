@@ -3,6 +3,7 @@ This project explores control strategies for a ball balancing robot, focusing on
 
 ## System Modeling and Equations of Motion
 This section includes files related to the derivation of the system's equations of motion and their state-space formulation.
+![Ball Balancing Robot System Diagram](system.png)
 - `equations_of_motion.ipynb`: Jupyter notebook detailing the derivation of the system's equations of motion.
 
 ## Linear Quadratic Regulator (LQR)
